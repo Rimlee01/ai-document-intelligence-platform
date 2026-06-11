@@ -1,0 +1,15 @@
+.env
+.env.local
+
+venv/
+Agent/
+
+__pycache__/
+*.pyc
+
+node_modules/
+
+build/
+dist/
+
+.vscode/
