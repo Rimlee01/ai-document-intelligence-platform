@@ -19,3 +19,4 @@ backend/data/
 
 # Python environment files
 *.env
+backend/chroma_db/
