@@ -13,10 +13,5 @@ build/
 dist/
 
 .vscode/
-# AI generated data
-backend/chroma_db/
-backend/data/
 
-# Python environment files
-*.env
 backend/chroma_db/
