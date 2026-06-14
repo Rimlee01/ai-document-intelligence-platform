@@ -12,7 +12,10 @@ llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
 embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 
 vectorstore = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
-retriever = vectorstore.as_retriever()
+
+retriever = vectorstore.as_retriever(
+    search_kwargs={"k":3}
+)
 
 class GraphState(TypedDict):
     question: str
