@@ -35,7 +35,8 @@ function Chat() {
     const handleSendMessage = async () => {
 
 
-        if (!input.trim()) return;
+        if (!input.trim() || loading) return;
+
 
 
         const question = input;
@@ -74,20 +75,24 @@ function Chat() {
                     method: "POST",
 
                     headers: {
-
                         "Content-Type": "application/json"
-
                     },
 
                     body: JSON.stringify({
-
-                        question: question
-
+                        question
                     })
 
                 }
 
             );
+
+
+
+            if (!response.ok) {
+
+                throw new Error("Server error");
+
+            }
 
 
 
@@ -101,7 +106,7 @@ function Chat() {
 
                 {
 
-                    text: data.answer,
+                    text: data?.answer || "No response",
 
                     sender: "ai"
 
@@ -111,9 +116,7 @@ function Chat() {
 
 
 
-        }
-
-        catch (error) {
+        } catch (error) {
 
 
             setMessages((prev) => [
@@ -122,14 +125,13 @@ function Chat() {
 
                 {
 
-                    text: "⚠️ Backend connection error.",
+                    text: "⚠️ Unable to connect to AI server.",
 
                     sender: "ai"
 
                 }
 
             ]);
-
 
         }
 
@@ -156,6 +158,10 @@ function Chat() {
 
 
 
+
+
+            {/* HEADER */}
+
             <div className="chat-header">
 
 
@@ -164,14 +170,14 @@ function Chat() {
 
                     <h2>
 
-                        🤖 AI Document Intelligence
+                        ✨ AI Document Intelligence
 
                     </h2>
 
 
                     <p>
 
-                        Agentic RAG powered assistant
+                        Agentic RAG • Gemini powered
 
                     </p>
 
@@ -199,11 +205,11 @@ function Chat() {
 
 
 
-
-
                     <div className="status">
 
-                        🟢 Online
+                        <span className="status-dot"></span>
+
+                        Online
 
                     </div>
 
@@ -212,13 +218,16 @@ function Chat() {
                 </div>
 
 
-
             </div>
 
 
 
 
 
+
+
+
+            {/* CHAT AREA */}
 
 
             <div
@@ -231,110 +240,169 @@ function Chat() {
 
 
 
-                {
-
-                    messages.length === 0 &&
-
-                    (
-
-                        <div className="welcome">
-
-
-                            <div className="robot">
-
-                                🤖
-
-                            </div>
 
 
 
-                            <h3>
-
-                                Welcome to AI Document Intelligence
-
-                            </h3>
+                {/* WELCOME */}
 
 
-
-                            <p>
-
-                                Intelligent document analysis powered by Gemini + RAG
-
-                            </p>
-
-                            <div className="document-status">
-
-                                <span>
-                                    📄 Resume.pdf loaded
-                                </span>
+                {messages.length === 0 && (
 
 
-                                <span>
-                                    🟢 Knowledge base ready
-                                </span>
-
-                            </div>
+                    <div className="welcome">
 
 
 
-                            <div className="suggestions">
+                        <div className="ai-avatar">
 
+                            <span className="ai-dot"></span>
 
-                                <button
-                                    onClick={() =>
-                                        setInput("Summarize my resume")
-                                    }
-                                >
-                                    Summarize my resume
-                                </button>
+                            AI Assistant
+
+                        </div>
 
 
 
-                                <button
-                                    onClick={() =>
-                                        setInput("What are my skills?")
-                                    }
-                                >
-                                    Find my skills
-                                </button>
+
+
+                        <h3>
+
+                            Ask anything about your document
+
+                        </h3>
 
 
 
-                                <button
-                                    onClick={() =>
-                                        setInput("Explain this document")
-                                    }
-                                >
-                                    Explain document
-                                </button>
 
 
-                            </div>
+                        <p>
+
+                            Powered by Gemini + RAG-based intelligence system
+
+                        </p>
+
+
+
+
+
+                        <div className="document-status">
+
+
+                            <span>
+
+                                📄 Resume.pdf loaded
+
+                            </span>
+
+
+
+                            <span>
+
+                                🟢 Knowledge base ready
+
+                            </span>
+
+
+                        </div>
+
+
+
+
+
+
+                        <div className="suggestions">
+
+
+
+                            <button
+
+                                onClick={() =>
+                                    setInput("Summarize my resume")}
+
+                            >
+
+                                Summarize resume
+
+                            </button>
+
+
+
+
+                            <button
+
+                                onClick={() =>
+                                    setInput("What are my skills?")}
+
+                            >
+
+                                My skills
+
+                            </button>
+
+
+
+
+                            <button
+
+                                onClick={() =>
+                                    setInput("Explain this document")}
+
+                            >
+
+                                Explain document
+
+                            </button>
 
 
 
                         </div>
 
-                    )
-
-                }
 
 
+                    </div>
+
+
+                )}
 
 
 
-                {
-
-                    messages.map((msg, index) => (
 
 
-                        <div
 
-                            key={index}
 
-                            className={`message-row ${msg.sender}`}
 
-                        >
+                {/* MESSAGES */}
+
+
+
+                {messages.map((msg, index) => (
+
+
+
+                    <div
+
+                        key={index}
+
+                        className={`message-row ${msg.sender}`}
+
+                    >
+
+
+
+                        <div className="message-content">
+
+
+
+                            <div className="avatar">
+
+                                {msg.sender === "user"
+                                    ? "👤"
+                                    : "✨"}
+
+                            </div>
+
+
+
 
 
                             <div
@@ -359,43 +427,49 @@ function Chat() {
                         </div>
 
 
-                    ))
 
-                }
-
+                    </div>
 
 
 
+                ))}
 
 
-                {
-
-                    loading &&
 
 
-                    (
-
-                        <div className="message-row ai">
 
 
-                            <div className="typing-bubble">
 
 
-                                <span></span>
-
-                                <span></span>
-
-                                <span></span>
+                {/* TYPING */}
 
 
-                            </div>
+
+                {loading && (
+
+
+                    <div className="message-row ai">
+
+
+                        <div className="typing-bubble">
+
+
+                            <span></span>
+
+                            <span></span>
+
+                            <span></span>
 
 
                         </div>
 
-                    )
 
-                }
+                    </div>
+
+
+                )}
+
+
 
 
 
@@ -407,34 +481,37 @@ function Chat() {
 
 
 
+
+
+            {/* INPUT */}
+
+
             <div className="input-area">
 
 
-
-                <input
-
+                <textarea
 
                     value={input}
 
-
                     placeholder="Ask anything about your documents..."
 
+                    disabled={loading}
 
                     onChange={(e) => setInput(e.target.value)}
 
-
-
                     onKeyDown={(e) => {
 
+                        if (e.key === "Enter" && !e.shiftKey) {
 
-                        if (e.key === "Enter") {
+                            e.preventDefault();
 
                             handleSendMessage();
 
                         }
 
-
                     }}
+
+                />
 
 
 
@@ -445,17 +522,11 @@ function Chat() {
 
 
                 <button
-
                     onClick={handleSendMessage}
-
-                    disabled={loading}
-
+                    disabled={loading || !input.trim()}
                 >
-
-                    Send
-
+                    {loading ? "Analyzing..." : "Send"}
                 </button>
-
 
 
             </div>
@@ -464,7 +535,10 @@ function Chat() {
 
 
 
+
+
         </div>
+
 
 
     );

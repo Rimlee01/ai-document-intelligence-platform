@@ -8,13 +8,19 @@ from langchain_chroma import Chroma
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash",
+    temperature=0,
+    max_output_tokens=512
+)
 embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 
 vectorstore = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
 
 retriever = vectorstore.as_retriever(
-    search_kwargs={"k":3}
+    search_kwargs={
+        "k":3
+    }
 )
 
 class GraphState(TypedDict):

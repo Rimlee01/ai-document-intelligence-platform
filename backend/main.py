@@ -21,18 +21,68 @@ class Query(BaseModel):
 
 @app.on_event("startup")
 def startup():
-    print("STARTING INGESTION")
-    ingest_docs()
-    print("INGESTION COMPLETE")
+
+    import os
+
+    if not os.path.exists("./chroma_db"):
+
+        print("STARTING INGESTION")
+
+        ingest_docs()
+
+        print("INGESTION COMPLETE")
+
+    else:
+
+        print("CHROMA DB FOUND - SKIPPING INGESTION")
+
+import time
+
 
 @app.post("/chat")
 def chat(query: Query):
+
     try:
-        result = graph.invoke({"question": query.question})
-        return {"answer": result.get("answer", "I'm sorry, I couldn't find an answer.")}
+
+        start_time = time.time()
+
+        print("QUESTION:", query.question)
+
+
+        result = graph.invoke(
+            {
+                "question": query.question
+            }
+        )
+
+
+        total_time = time.time() - start_time
+
+
+        print(
+            f"TOTAL RESPONSE TIME: {total_time:.2f} seconds"
+        )
+
+
+        return {
+            "answer": result.get(
+                "answer",
+                "I'm sorry, I couldn't find an answer."
+            )
+        }
+
+
     except Exception as e:
-        print(f"Error during graph invocation: {e}")
-        return {"answer": "Internal Server Error. Check backend console."}
+
+        print(
+            f"Error during graph invocation: {e}"
+        )
+
+
+        return {
+            "answer":
+            "Internal Server Error. Check backend console."
+        }
 
 if __name__ == "__main__":
 
