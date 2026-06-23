@@ -10,3 +10,4 @@ pypdf
 google-generativeai
 langgraph
 docx2txt
+python-multipart
