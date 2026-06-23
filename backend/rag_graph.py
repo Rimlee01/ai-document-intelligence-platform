@@ -73,8 +73,19 @@ def generate(state: GraphState):
     )
 
     prompt = f"""You are a helpful assistant. Answer the question based ONLY on the context provided below.
-Each context chunk is labeled with the source document it came from.
-If the answer isn't in the context, say you don't know — do not make anything up.
+Each context chunk is labeled with its source document.
+
+IMPORTANT RULES:
+- If multiple documents are in the context, clearly separate your answer by document.
+- If the user says "the document" but multiple documents exist, list each one separately and label them.
+- If the answer isn't in the context, say you don't know — do not make anything up.
+- Be specific and detailed in your answers.
+
+Context:
+{context}
+
+Question: {question}
+"""
 
 Context:
 {context}
