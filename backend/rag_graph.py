@@ -78,7 +78,7 @@ Each context chunk is labeled with its source document.
 IMPORTANT RULES:
 - If multiple documents are in the context, clearly separate your answer by document.
 - If the user says "the document" but multiple documents exist, list each one separately and label them.
-- If the answer isn't in the context, say you don't know — do not make anything up.
+- If the answer isn't in the context, say you don't know - do not make anything up.
 - Be specific and detailed in your answers.
 
 Context:
