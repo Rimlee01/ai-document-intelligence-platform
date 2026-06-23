@@ -1,13 +1,13 @@
-.app {
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
 
-  background: linear-gradient(
-    135deg,
-    #eef2ff,
-    #f8fafc
-  );
+body {
+  background: #1B1D17;
+}
+
+.app {
+  height: 100vh;
 }
