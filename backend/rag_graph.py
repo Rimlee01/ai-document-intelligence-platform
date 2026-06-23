@@ -72,7 +72,7 @@ def generate(state: GraphState):
         for d in docs
     )
 
-    prompt = f"""
+prompt = f"""
 You are an intelligent document-based assistant. Your task is to answer the user's question using ONLY the information available in the provided context.
 
 Follow these rules carefully:
