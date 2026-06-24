@@ -12,8 +12,18 @@ from langchain_google_genai import (
 from langchain_chroma import Chroma
 
 
+# =========================
+# ENVIRONMENT
+# =========================
+
 load_dotenv()
 
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+
+# =========================
+# PATHS
+# =========================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -23,6 +33,9 @@ CHROMA_DIR = os.path.join(
 )
 
 
+# =========================
+# MODELS
+# =========================
 
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
@@ -31,12 +44,15 @@ llm = ChatGoogleGenerativeAI(
 )
 
 
-
 embeddings = GoogleGenerativeAIEmbeddings(
     model="models/gemini-embedding-001"
 )
 
 
+
+# =========================
+# VECTOR DATABASE
+# =========================
 
 def get_retriever():
 
@@ -58,15 +74,26 @@ retriever = get_retriever()
 
 
 
+# =========================
+# GRAPH STATE
+# NO TYPING HERE
+# =========================
+
 class GraphState(dict):
     pass
 
 
 
+# =========================
+# RETRIEVE DOCUMENTS
+# =========================
 
 def retrieve(state):
 
-    question = state["question"]
+    question = state.get(
+        "question",
+        ""
+    )
 
 
     print(
@@ -87,9 +114,9 @@ def retrieve(state):
 
     return {
 
-        "docs": documents,
-
         "question": question,
+
+        "docs": documents,
 
         "history": state.get(
             "history",
@@ -100,16 +127,22 @@ def retrieve(state):
 
 
 
-
+# =========================
+# GENERATE ANSWER
+# =========================
 
 def generate(state):
 
-    question = state["question"]
+    question = state.get(
+        "question",
+        ""
+    )
 
     docs = state.get(
         "docs",
         []
     )
+
 
     history = state.get(
         "history",
@@ -131,10 +164,12 @@ def generate(state):
 
 
 
+    # Create context
+
     context = "\n\n".join(
 
         f"""
-Source:
+Source Document:
 {doc.metadata.get('source','unknown')}
 
 Content:
@@ -147,41 +182,51 @@ Content:
 
 
 
+    # Conversation memory
+
     history_text = ""
 
 
     for msg in history[-6:]:
 
         history_text += (
-            f"{msg.get('sender')}: "
-            f"{msg.get('text')}\n"
+
+            f"{msg.get('sender','')}: "
+            f"{msg.get('text','')}\n"
+
         )
 
 
 
     prompt = f"""
 
-You are a document assistant.
+You are an intelligent document-based assistant.
 
-Answer ONLY using the provided context.
+Answer the question ONLY using the provided documents.
 
 Rules:
 
-- Never use outside knowledge.
-- Never invent information.
-- If answer is missing say:
+- Do not use outside knowledge.
+- Do not guess.
+- Do not create information.
+- If information is missing say:
 "I don't have enough information in the provided documents to answer this."
 
-- If multiple documents contain information, separate answers by source.
+- If multiple documents contain information, separate the answer by document.
+- Mention the source document when possible.
+- Be detailed and accurate.
 
-Conversation:
+
+Previous Conversation:
 
 {history_text}
 
 
 Documents:
 
+----------------
 {context}
+----------------
 
 
 Question:
@@ -201,6 +246,8 @@ Answer:
 
 
 
+    # Sources
+
     sources = []
 
     seen = set()
@@ -209,29 +256,34 @@ Answer:
 
     for doc in docs:
 
-        src = doc.metadata.get(
+        source = doc.metadata.get(
             "source",
             "unknown"
         )
 
 
-        if src not in seen:
+        if source in seen:
 
-            seen.add(src)
+            continue
 
 
-            sources.append(
+        seen.add(source)
 
-                {
 
-                    "source": src,
+        snippet = doc.page_content[:180]
 
-                    "snippet":
-                    doc.page_content[:180]
 
-                }
+        sources.append(
 
-            )
+            {
+
+                "source": source,
+
+                "snippet": snippet
+
+            }
+
+        )
 
 
 
@@ -245,6 +297,9 @@ Answer:
 
 
 
+# =========================
+# BUILD LANGGRAPH
+# =========================
 
 def build_graph():
 
@@ -286,19 +341,22 @@ def build_graph():
 
 
 
-
 graph = build_graph()
 
 
 
+# =========================
+# REFRESH RETRIEVER
+# =========================
 
 def refresh_retriever():
 
     global retriever
 
+
     retriever = get_retriever()
+
 
     print(
         "Retriever refreshed"
     )
-    
