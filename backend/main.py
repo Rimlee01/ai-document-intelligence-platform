@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from rpds import List
+# REMOVED: from rpds import List (This was causing the crash)
 from rag_graph import graph, refresh_retriever
 from ingest import ingest_docs, list_ingested_sources, LOADERS
 
@@ -32,7 +32,7 @@ app.add_middleware(
 
 class Query(BaseModel):
     question: str
-    history: List[dict] = []
+    history: list[dict] = []  # FIXED: Uses native lowercase list to prevent Python 3.14 crashes
 
 
 # =========================
