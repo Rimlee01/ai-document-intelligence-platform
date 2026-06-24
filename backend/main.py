@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from rpds import List
 from rag_graph import graph, refresh_retriever
 from ingest import ingest_docs, list_ingested_sources, LOADERS
 
@@ -31,6 +32,7 @@ app.add_middleware(
 
 class Query(BaseModel):
     question: str
+    history: List[dict] = []
 
 
 # =========================
@@ -62,36 +64,31 @@ def home():
 # =========================
 # Chat Route
 # =========================
-
 @app.post("/chat")
 def chat(query: Query):
-
     try:
         start_time = time.time()
-
         print("QUESTION:", query.question)
 
-        result = graph.invoke({"question": query.question})
+        result = graph.invoke({
+            "question": query.question,
+            "history": query.history
+        })
 
         total_time = time.time() - start_time
         print(f"TOTAL RESPONSE TIME: {total_time:.2f} seconds")
 
         return {
-            "answer": result.get(
-                "answer", "I'm sorry, I couldn't find an answer."
-            ),
+            "answer": result.get("answer", "I'm sorry, I couldn't find an answer."),
             "sources": result.get("sources", [])
         }
 
     except Exception as e:
         print(f"Error during graph invocation: {e}")
-
         raise HTTPException(
             status_code=500,
-            detail="Something went wrong while generating an answer. "
-                   "Check the backend console for details."
+            detail="Something went wrong. Check the backend console."
         )
-
 
 # =========================
 # Upload Document Route
