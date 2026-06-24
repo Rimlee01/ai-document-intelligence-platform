@@ -1,5 +1,5 @@
 import os
-
+from typing import TypedDict, List, Dict, Any  # Added typing imports
 from dotenv import load_dotenv
 
 from langgraph.graph import StateGraph, END
@@ -49,18 +49,15 @@ embeddings = GoogleGenerativeAIEmbeddings(
 )
 
 
-
 # =========================
 # VECTOR DATABASE
 # =========================
 
 def get_retriever():
-
     vectorstore = Chroma(
         persist_directory=CHROMA_DIR,
         embedding_function=embeddings
     )
-
 
     return vectorstore.as_retriever(
         search_kwargs={
@@ -68,106 +65,61 @@ def get_retriever():
         }
     )
 
-
-
 retriever = get_retriever()
-
 
 
 # =========================
 # GRAPH STATE
-# NO TYPING HERE
 # =========================
 
-class GraphState(dict):
-    pass
-
+# FIX: Use TypedDict to explicitly define the state schema for LangGraph
+class GraphState(TypedDict):
+    question: str
+    docs: List[Any]
+    history: List[Dict[str, Any]]
+    answer: str
+    sources: List[Dict[str, Any]]
 
 
 # =========================
 # RETRIEVE DOCUMENTS
 # =========================
 
-def retrieve(state):
+def retrieve(state: GraphState):
 
-    question = state.get(
-        "question",
-        ""
-    )
+    question = state.get("question", "")
 
+    print(f"--- RETRIEVING DOCS FOR: {question} ---")
 
-    print(
-        f"--- RETRIEVING DOCS FOR: {question} ---"
-    )
+    documents = retriever.invoke(question)
 
-
-    documents = retriever.invoke(
-        question
-    )
-
-
-    print(
-        "DOCUMENTS FOUND:",
-        len(documents)
-    )
-
+    print("DOCUMENTS FOUND:", len(documents))
 
     return {
-
         "question": question,
-
         "docs": documents,
-
-        "history": state.get(
-            "history",
-            []
-        )
-
+        "history": state.get("history", [])
     }
-
 
 
 # =========================
 # GENERATE ANSWER
 # =========================
 
-def generate(state):
+def generate(state: GraphState):
 
-    question = state.get(
-        "question",
-        ""
-    )
-
-    docs = state.get(
-        "docs",
-        []
-    )
-
-
-    history = state.get(
-        "history",
-        []
-    )
-
-
+    question = state.get("question", "")
+    docs = state.get("docs", [])
+    history = state.get("history", [])
 
     if not docs:
-
         return {
-
-            "answer":
-            "I couldn't find anything relevant in the uploaded documents.",
-
+            "answer": "I couldn't find anything relevant in the uploaded documents.",
             "sources": []
-
         }
 
-
-
     # Create context
-
     context = "\n\n".join(
-
         f"""
 Source Document:
 {doc.metadata.get('source','unknown')}
@@ -175,126 +127,70 @@ Source Document:
 Content:
 {doc.page_content}
 """
-
         for doc in docs
-
     )
 
-
-
     # Conversation memory
-
     history_text = ""
-
-
     for msg in history[-6:]:
-
         history_text += (
-
             f"{msg.get('sender','')}: "
             f"{msg.get('text','')}\n"
-
         )
 
-
-
     prompt = f"""
-
 You are an intelligent document-based assistant.
 
 Answer the question ONLY using the provided documents.
 
 Rules:
-
 - Do not use outside knowledge.
 - Do not guess.
 - Do not create information.
 - If information is missing say:
 "I don't have enough information in the provided documents to answer this."
-
 - If multiple documents contain information, separate the answer by document.
 - Mention the source document when possible.
 - Be detailed and accurate.
 
-
 Previous Conversation:
-
 {history_text}
 
-
 Documents:
-
 ----------------
 {context}
 ----------------
 
-
 Question:
-
 {question}
 
-
 Answer:
-
 """
 
-
-
-    response = llm.invoke(
-        prompt
-    )
-
-
+    response = llm.invoke(prompt)
 
     # Sources
-
     sources = []
-
     seen = set()
 
-
-
     for doc in docs:
-
-        source = doc.metadata.get(
-            "source",
-            "unknown"
-        )
-
+        source = doc.metadata.get("source", "unknown")
 
         if source in seen:
-
             continue
 
-
         seen.add(source)
-
-
         snippet = doc.page_content[:180]
 
-
-        sources.append(
-
-            {
-
-                "source": source,
-
-                "snippet": snippet
-
-            }
-
-        )
-
-
+        sources.append({
+            "source": source,
+            "snippet": snippet
+        })
 
     return {
-
         "answer": response.content,
-
         "sources": sources
-
     }
-
 
 
 # =========================
@@ -302,47 +198,20 @@ Answer:
 # =========================
 
 def build_graph():
+    
+    workflow = StateGraph(GraphState)
 
-    workflow = StateGraph(
-        GraphState
-    )
+    workflow.add_node("retrieve", retrieve)
+    workflow.add_node("generate", generate)
 
-
-    workflow.add_node(
-        "retrieve",
-        retrieve
-    )
-
-
-    workflow.add_node(
-        "generate",
-        generate
-    )
-
-
-    workflow.set_entry_point(
-        "retrieve"
-    )
-
-
-    workflow.add_edge(
-        "retrieve",
-        "generate"
-    )
-
-
-    workflow.add_edge(
-        "generate",
-        END
-    )
-
+    workflow.set_entry_point("retrieve")
+    workflow.add_edge("retrieve", "generate")
+    workflow.add_edge("generate", END)
 
     return workflow.compile()
 
 
-
 graph = build_graph()
-
 
 
 # =========================
@@ -350,13 +219,6 @@ graph = build_graph()
 # =========================
 
 def refresh_retriever():
-
     global retriever
-
-
     retriever = get_retriever()
-
-
-    print(
-        "Retriever refreshed"
-    )
+    print("Retriever refreshed")
