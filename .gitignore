@@ -1,17 +1,25 @@
-.env
-.env.local
-
-venv/
-Agent/
-
+# Python
 __pycache__/
 *.pyc
+venv/
+.env
 
+# Chroma database
+backend/chroma_db/
+
+# User uploads
+backend/uploads/
+
+# Node
 node_modules/
+frontend/node_modules/
 
-build/
-dist/
+# React build
+frontend/build/
 
+# IDE
 .vscode/
 
-backend/chroma_db/
+# OS
+.DS_Store
+Thumbs.db
