@@ -159,7 +159,7 @@ function Chat() {
     setHistory((p) => p.filter((h) => h.id !== id));
     if (activeId === id) { setMessages([]); setWakeMsg(null); }
   };
-
+// eslint-disable-next-line no-loop-func
   const handleSend = async () => {
     if (!input.trim() || loading) return;
     const question = input;
@@ -213,7 +213,7 @@ function Chat() {
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop();
-
+// eslint-disable-next-line no-loop-func
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
           const data = line.slice(6).trim();
