@@ -5,6 +5,10 @@ from pydantic import BaseModel
 from rag_graph import graph, refresh_retriever
 from ingest import ingest_docs, list_ingested_sources, LOADERS
 
+from fastapi.responses import StreamingResponse
+from rag_graph import graph, refresh_retriever, stream_answer
+import json
+
 import uvicorn
 import time
 import os
@@ -89,6 +93,27 @@ def chat(query: Query):
             status_code=500,
             detail="Something went wrong. Check the backend console."
         )
+
+@app.post("/chat/stream")
+def chat_stream(query: Query):
+    def generate():
+        try:
+            for chunk in stream_answer(query.question, query.history):
+                yield chunk
+        except Exception as e:
+            print(f"Streaming error: {e}")
+            yield "data: " + json.dumps({"token": "Something went wrong. Please try again."}) + "\n\n"
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        }
+    )
 
 # =========================
 # Upload Document Route

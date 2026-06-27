@@ -54,7 +54,6 @@ function CitationTabs({ sources }) {
   );
 }
 
-// Simple fetch with timeout
 async function timedFetch(url, options = {}, ms = 60000) {
   const ctrl = new AbortController();
   const id = setTimeout(() => ctrl.abort(), ms);
@@ -68,22 +67,19 @@ async function timedFetch(url, options = {}, ms = 60000) {
   }
 }
 
-// Wake server first (ping until alive, max 90s), then run cb()
 async function ensureAwake(onStatus) {
-  // Quick check — already awake?
   try {
     await timedFetch(`${API_BASE}/`, {}, 5000);
-    return true; // already awake
+    return true;
   } catch {}
 
-  // Sleeping — tell the user and keep polling
   onStatus("⏳ Server is waking up (free tier). This takes ~30–50 seconds…");
   const deadline = Date.now() + 90000;
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 5000));
     try {
       await timedFetch(`${API_BASE}/`, {}, 5000);
-      onStatus(null); // clear the wakeup message
+      onStatus(null);
       return true;
     } catch {}
   }
@@ -111,7 +107,6 @@ function Chat() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading, wakeMsg]);
 
-  // Health check
   const checkHealth = useCallback(async () => {
     try {
       const res = await timedFetch(`${API_BASE}/`, {}, 8000);
@@ -127,7 +122,6 @@ function Chat() {
     return () => clearInterval(t);
   }, [checkHealth]);
 
-  // History helpers
   const saveToHistory = useCallback((msgs, id) => {
     if (!msgs.length) return;
     const title =
@@ -166,7 +160,6 @@ function Chat() {
     if (activeId === id) { setMessages([]); setWakeMsg(null); }
   };
 
-  // Send message
   const handleSend = async () => {
     if (!input.trim() || loading) return;
     const question = input;
@@ -177,41 +170,94 @@ function Chat() {
 
     try {
       await ensureAwake((msg) => setWakeMsg(msg));
+      setWakeMsg(null);
 
-      const res = await timedFetch(`${API_BASE}/chat`, {
+      const aiMsgId = Date.now();
+      setMessages((p) => [...p, {
+        id: aiMsgId,
+        text: "",
+        sender: "ai",
+        streaming: true,
+      }]);
+
+      const response = await fetch(`${API_BASE}/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
-      }, 60000);
+        body: JSON.stringify({
+          question,
+          history: messages.slice(-10),
+        }),
+      });
 
-      setWakeMsg(null);
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok) {
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        setMessages((p) => p.filter((m) => m.id !== aiMsgId));
         setMessages((p) => [...p, {
           text: data?.detail || "Something went wrong. Please try again.",
-          sender: "ai", isError: true,
+          sender: "ai",
+          isError: true,
         }]);
         return;
       }
 
-      setMessages((p) => [...p, {
-        text: data?.answer || "No response.",
-        sender: "ai",
-        sources: data?.sources,
-      }]);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+      let sources = [];
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.token !== undefined) {
+              fullText += parsed.token;
+              setMessages((p) =>
+                p.map((m) =>
+                  m.id === aiMsgId ? { ...m, text: fullText } : m
+                )
+              );
+            }
+            if (parsed.sources) {
+              sources = parsed.sources;
+            }
+          } catch {
+            // incomplete JSON chunk, skip
+          }
+        }
+      }
+
+      setMessages((p) =>
+        p.map((m) =>
+          m.id === aiMsgId
+            ? { ...m, text: fullText, sources, streaming: false }
+            : m
+        )
+      );
     } catch (err) {
       setWakeMsg(null);
+      setMessages((p) => p.filter((m) => !m.streaming));
       setMessages((p) => [...p, {
         text: err.message || "Unable to reach the server.",
-        sender: "ai", isError: true,
+        sender: "ai",
+        isError: true,
       }]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Upload document
   const uploadFile = async (file) => {
     if (!file) return;
 
@@ -225,26 +271,20 @@ function Chat() {
     setUploadStatus({ text: `Preparing to upload ${file.name}…`, type: "pending" });
 
     try {
-      // Step 1: make sure server is awake
       await ensureAwake((msg) =>
         setUploadStatus({ text: msg || `Uploading ${file.name}…`, type: "pending" })
       );
 
-      // Step 2: upload — create fresh FormData here (after wakeup)
       setUploadStatus({ text: `Uploading ${file.name}…`, type: "pending" });
       const formData = new FormData();
       formData.append("file", file);
-
-      console.log("Uploading to:", `${API_BASE}/upload`);
 
       const res = await timedFetch(`${API_BASE}/upload`, {
         method: "POST",
         body: formData,
       }, 60000);
 
-      console.log("Upload response status:", res.status);
       const data = await res.json().catch(() => null);
-      console.log("Upload response data:", data);
 
       if (!res.ok) {
         setUploadStatus({
@@ -378,9 +418,9 @@ function Chat() {
             <div key={i} className={`message-row ${msg.sender}`}>
               <div className="message-content">
                 <div className="avatar">{msg.sender === "user" ? "Y" : "A"}</div>
-                <div className={`bubble ${msg.sender} ${msg.isError ? "error" : ""}`}>
+                <div className={`bubble ${msg.sender} ${msg.isError ? "error" : ""} ${msg.streaming ? "streaming" : ""}`}>
                   <ReactMarkdown>{msg.text}</ReactMarkdown>
-                  {msg.sender === "ai" && !msg.isError && (
+                  {msg.sender === "ai" && !msg.isError && !msg.streaming && (
                     <CitationTabs sources={msg.sources} />
                   )}
                 </div>
@@ -393,15 +433,6 @@ function Chat() {
               <div className="message-content">
                 <div className="avatar">A</div>
                 <div className="bubble ai wakeup">{wakeMsg}</div>
-              </div>
-            </div>
-          )}
-
-          {loading && (
-            <div className="message-row ai">
-              <div className="message-content">
-                <div className="avatar">A</div>
-                <div className="typing-bubble"><span /><span /><span /></div>
               </div>
             </div>
           )}

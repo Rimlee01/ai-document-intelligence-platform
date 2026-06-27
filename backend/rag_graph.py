@@ -222,3 +222,61 @@ def refresh_retriever():
     global retriever
     retriever = get_retriever()
     print("Retriever refreshed")
+
+import json
+
+def stream_answer(question: str, history: list = []):
+    """Retrieve docs then stream LLM tokens as SSE events."""
+
+    documents = retriever.invoke(question)
+
+    if not documents:
+        yield "data: " + json.dumps({"token": "I couldn't find anything relevant in the uploaded documents. Try rephrasing, or upload a document that covers this topic."}) + "\n\n"
+        yield "data: [DONE]\n\n"
+        return
+
+    context = "\n\n".join(
+        f"[Source: {d.metadata.get('source', 'unknown')}]\n{d.page_content}"
+        for d in documents
+    )
+
+    history_text = ""
+    if history:
+        history_text = "Previous conversation:\n"
+        for msg in history[-6:]:
+            role = "User" if msg.get("sender") == "user" else "Assistant"
+            history_text += f"{role}: {msg.get('text', '')}\n"
+        history_text += "\n"
+
+    prompt = (
+        "You are an intelligent document-based assistant. Answer using ONLY the context below.\n\n"
+        + (history_text if history_text else "")
+        + "Rules:\n"
+        "- Use only the provided context. Do not use outside knowledge.\n"
+        "- If multiple documents are relevant, answer per document and label each.\n"
+        "- If the answer is not in the context, say you don't know.\n"
+        "- Never guess or make up information.\n\n"
+        f"Context:\n----------------\n{context}\n----------------\n\n"
+        f"Current Question: {question}\n\nAnswer:"
+    )
+
+    # Stream tokens
+    for chunk in llm.stream(prompt):
+        if chunk.content:
+            yield "data: " + json.dumps({"token": chunk.content}) + "\n\n"
+
+    # Send sources after all tokens
+    sources = []
+    seen = set()
+    for d in documents:
+        src = d.metadata.get("source", "unknown")
+        if src in seen:
+            continue
+        seen.add(src)
+        snippet = d.page_content[:180].strip()
+        if len(d.page_content) > 180:
+            snippet += "…"
+        sources.append({"source": src, "snippet": snippet})
+
+    yield "data: " + json.dumps({"sources": sources}) + "\n\n"
+    yield "data: [DONE]\n\n"    
