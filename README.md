@@ -3,7 +3,7 @@
 An agentic RAG-powered document intelligence system. Upload documents and interact with them using natural language — the AI answers questions based only on your document content, with source citations for every response.
 
 **Live Demo:**
-- Frontend: https://ai-document-intelligence-platform-nine.vercel.app
+- Frontend:https://ai-document-intelligence-platform-nine.vercel.app/
 - Backend API: https://ai-document-intelligence-platform-hit4.onrender.com
 
 ---
