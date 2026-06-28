@@ -159,7 +159,7 @@ function Chat() {
     setHistory((p) => p.filter((h) => h.id !== id));
     if (activeId === id) { setMessages([]); setWakeMsg(null); }
   };
-// eslint-disable-next-line no-loop-func
+
   const handleSend = async () => {
     if (!input.trim() || loading) return;
     const question = input;
@@ -206,36 +206,36 @@ function Chat() {
       let sources = [];
       let buffer = "";
 
+      const processLine = (line, msgId, onToken, onSources) => {
+        if (!line.startsWith("data: ")) return;
+        const raw = line.slice(6).trim();
+        if (raw === "[DONE]") return;
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed.token !== undefined) onToken(parsed.token, msgId);
+          if (parsed.sources) onSources(parsed.sources);
+        } catch {
+          // incomplete chunk, skip
+        }
+      };
+
+      const handleToken = (token, msgId) => {
+        fullText += token;
+        const snap = fullText;
+        setMessages((p) =>
+          p.map((m) => (m.id === msgId ? { ...m, text: snap } : m))
+        );
+      };
+
+      const handleSources = (s) => { sources = s; };
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop();
-// eslint-disable-next-line no-loop-func
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6).trim();
-          if (data === "[DONE]") continue;
-
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.token !== undefined) {
-              fullText += parsed.token;
-              setMessages((p) =>
-                p.map((m) =>
-                  m.id === aiMsgId ? { ...m, text: fullText } : m
-                )
-              );
-            }
-            if (parsed.sources) {
-              sources = parsed.sources;
-            }
-          } catch {
-            // incomplete JSON chunk, skip
-          }
-        }
+        lines.forEach((line) => processLine(line, aiMsgId, handleToken, handleSources));
       }
 
       setMessages((p) =>
